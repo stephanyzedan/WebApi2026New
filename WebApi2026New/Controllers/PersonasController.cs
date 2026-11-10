@@ -3,9 +3,11 @@ using Microsoft.EntityFrameworkCore;
 using WebApi2026New.Data;
 using WebApi2026New.DTOs;
 using WebApi2026New.Models;
+using Microsoft.AspNetCore.Authorization;
 
 [Route("api/[controller]")]
 [ApiController]
+[Authorize]
 public class PersonasController : ControllerBase
 {
     private readonly AppDBContext _context;
@@ -61,34 +63,19 @@ public class PersonasController : ControllerBase
         return persona;
     }
 
-    // PUT: api/Persona/5
-    // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
+    // PUT: api/Persona/5 -> recibe un DTO, no la entidad (así no se sobrescribe el password)
     [HttpPut("{id}")]
-    public async Task<IActionResult> PutPersona(int? id, Persona persona)
+    public async Task<IActionResult> PutPersona(int id, PersonaUpdateDTO dto)
     {
-        if (id != persona.idPersona)
-        {
-            return BadRequest();
-        }
+        var persona = await _context.Personas.FindAsync(id);
+        if (persona == null)
+            return NotFound();
 
-        _context.Entry(persona).State = EntityState.Modified;
+        persona.nombre = dto.nombre;
+        persona.apellido = dto.apellido;
+        persona.edad = dto.edad;
 
-        try
-        {
-            await _context.SaveChangesAsync();
-        }
-        catch (DbUpdateConcurrencyException)
-        {
-            if (!PersonaExists(id))
-            {
-                return NotFound();
-            }
-            else
-            {
-                throw;
-            }
-        }
-
+        await _context.SaveChangesAsync();
         return NoContent();
     }
 
@@ -103,7 +90,7 @@ public class PersonasController : ControllerBase
             apellido = dto.apellido,
             correo = dto.correo,
             edad = dto.edad,
-            password = dto.password // idealmente guardar un hash, no el texto plano
+            password = BCrypt.Net.BCrypt.HashPassword(dto.password) // ahora sí: hash
         };
 
         _context.Personas.Add(persona);
@@ -134,10 +121,5 @@ public class PersonasController : ControllerBase
         await _context.SaveChangesAsync();
 
         return NoContent();
-    }
-
-    private bool PersonaExists(int? id)
-    {
-        return _context.Personas.Any(e => e.idPersona == id);
     }
 }
